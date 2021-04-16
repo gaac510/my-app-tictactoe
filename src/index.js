@@ -19,11 +19,61 @@ class Square extends React.Component {
   
   checkPlayed() { // Because DRY.
   /**
-   * Would it be better-performance to just keep an internal state for flagging
-   * whether the square has been played and at which move?
-   * If would be a derived state as a change in `props.progressShown` will cause
-   * it to change.
-   * */
+   * Would it be better-performance to just keep a couple local states for flagging
+   * whether and at which move the square has been played and by whom?
+   * 
+   * Three options below. 2 appears to be the best.
+   * 
+   * Option 1. Without square[local state]:
+   * [-] Need to pass down entire `game.state` (may split them up with more typing).
+   * [+] One state rules them all.
+   * > Playing a move
+   *     => `square.playMove()` called
+   *     => `game.onPlayMove()` called
+   *     => `moveHistory` & `progressShown` updated
+   *     => `game.state` broadcasted to *every* suqare
+   *     => *Every* square `render()` after looping through `moveHistory`
+   * > Changing `progressShown`
+   *     => `goToMove()` called
+   *     => `progressShown` updated
+   *     => `game.state` broadcasted to *every* square
+   *     => *Every* square `render()` after looping through a slice of `moveHistory`
+   * 
+   * Option 2. With non-derived square[local state] & set locally:
+   * [+] Needs to pass down only `progressShown` & `winner` ie the simpler states.
+   * [+] Completely replaces loops with arithmetic comparisons.
+   * > Playing a move
+   *     => `square.playMove()` called
+   *     => `square[local state]` updated & `game.onPlayMove()` called
+   *     => Played quare `render()`, and `moveHistory` & `progressShown` updated
+   *     => `progressShown` broadcasted to *every* suqare
+   *     => *Every* square `render()` after comparing `square[local state]` to `progressShown`
+   * > Changing `progressShown`
+   *     => `goToMove()` called
+   *     => `progressShown` updated
+   *     => `progressShown` broadcasted to *every* square
+   *     => *Every* square `render()` after comparing `square[local state]` to `progressShown`
+   * 
+   * Option 3. With derived square[local state] & set locally:
+   * [-] *Derived* states.
+   * [-] May need to compare prevState and state, which adds complexity.
+   * [-] If Don't compare prevState and state, worse performance. (ie there's a trade off)
+   * [-] Need to pass down entire `game.state` (may split them up with more typing).
+   * [+] May save on some `render()` calls some of which won't be complete rerenders.
+   * > Playing a move
+   *     => `square.playMove()` called
+   *     => `square[local state]` updated & `game.onPlayMove()` called
+   *     => Played square `render()`, and `moveHistory` & `progressShown` updated
+   *     => `game.state` broadcasted to *every* suqare
+   *     => *Every* square may check whether to and re-calc [local state] after looping through `moveHistory` (and finds no change)
+   *     => Unless in previous step checked whether to update, *every* square `render()`
+   * > Changing `progressShown`
+   *     => `goToMove()` called
+   *     => `progressShown` updated
+   *     => `game.state` broadcasted to *every* square
+   *     => *Every* `square[local state]` may check whether to and update itself after looping through a slice of `moveHistory`
+   *     => Squares with updated `[local state]` `render()`
+   */
     const movesShown = this.props.gameStates.moveHistory.slice(0, this.props.gameStates.progressShown);
     
     let i = 0;
@@ -66,7 +116,7 @@ class Square extends React.Component {
      * 3. New local states trigger rerender of component.
     */
     //console.clear(); // For debugging.
-    console.log(this.checkPlayed()); // For debugging.
+    //console.log(this.checkPlayed()); // For debugging.
   }
 
   render() {
@@ -82,6 +132,8 @@ class Square extends React.Component {
      * > recursion - OK, but let's not complicate things.
      * > Array methods - `reduce` should work.
     */
+    //console.clear();
+    console.log("Square ", this.props.row, this.props.column, " has called `render()`");
     const i = this.checkPlayed();
     const playedBy = i === undefined? "" : this.props.gameStates.moveHistory[i].movePlayer;
     
@@ -104,6 +156,7 @@ class Board extends React.Component {
   }
 
   render() {
+    console.log("Board has called `render()`");
     const moves = this.props.gameStates.moveHistory;
     const shown = this.props.gameStates.progressShown;
     const player = !shown ? "X"
@@ -203,6 +256,7 @@ class Game extends React.Component {
     const player = !shown ? "X"
                       : moves[shown - 1].movePlayer === "X" ? "O" 
                       : "X";
+                      // Over complicated. To revise.
 
 
     this.setState({
@@ -226,7 +280,7 @@ class Game extends React.Component {
 
   // For debugging:
   componentDidUpdate() {
-    console.clear();
+    //console.clear();
     console.log(this.state.moveHistory);
     console.log(this.state.progressShown);
     }
@@ -234,6 +288,7 @@ class Game extends React.Component {
 
 
   render() {
+    console.log("Game has called `render()`");
     const moves = this.state.moveHistory;
 
     const moveList = moves.map(
