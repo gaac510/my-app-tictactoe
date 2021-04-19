@@ -3,195 +3,102 @@ import ReactDOM from 'react-dom';
 import './index.css';
 
 class Square extends React.Component {
+  // `Square`'s responsibility: responds to and render results of clicks.
+  
   constructor(props) {
     super(props);
     this.state = {
-      //moveNumber: -1,
-      //playedBy: ""
-      /**
-       * Perhaps neither of these is necessary? If moveHistory records a 
-       * move for a square, conditional render of the square should be achievable.
-      */
+      moveNumber: 99, // For correct rendering.
+      playedBy: "" // For correct rendering.
     };
     this.playMove = this.playMove.bind(this);
-    this.checkPlayed = this.checkPlayed.bind(this);
-  }
-  
-  checkPlayed() { // Because DRY.
-  /**
-   * Would it be better-performance to just keep a couple local states for flagging
-   * whether and at which move the square has been played and by whom?
-   * 
-   * Three options below. 2 appears to be the best.
-   * 
-   * Option 1. Without square[local state]:
-   * [-] Need to pass down entire `game.state` (may split them up with more typing).
-   * [+] One state rules them all.
-   * > Playing a move
-   *     => `square.playMove()` called
-   *     => `game.onPlayMove()` called
-   *     => `moveHistory` & `progressShown` updated
-   *     => `game.state` broadcasted to *every* suqare
-   *     => *Every* square `render()` after looping through `moveHistory`
-   * > Changing `progressShown`
-   *     => `goToMove()` called
-   *     => `progressShown` updated
-   *     => `game.state` broadcasted to *every* square
-   *     => *Every* square `render()` after looping through a slice of `moveHistory`
-   * 
-   * Option 2. With non-derived square[local state] & set locally:
-   * [+] Needs to pass down only `progressShown` & `winner` ie the simpler states.
-   * [+] Completely replaces loops with arithmetic comparisons.
-   * > Playing a move
-   *     => `square.playMove()` called
-   *     => `square[local state]` updated & `game.onPlayMove()` called
-   *     => Played quare `render()`, and `moveHistory` & `progressShown` updated
-   *     => `progressShown` broadcasted to *every* suqare
-   *     => *Every* square `render()` after comparing `square[local state]` to `progressShown`
-   * > Changing `progressShown`
-   *     => `goToMove()` called
-   *     => `progressShown` updated
-   *     => `progressShown` broadcasted to *every* square
-   *     => *Every* square `render()` after comparing `square[local state]` to `progressShown`
-   * 
-   * Option 3. With derived square[local state] & set locally:
-   * [-] *Derived* states.
-   * [-] May need to compare prevState and state, which adds complexity.
-   * [-] If Don't compare prevState and state, worse performance. (ie there's a trade off)
-   * [-] Need to pass down entire `game.state` (may split them up with more typing).
-   * [+] May save on some `render()` calls some of which won't be complete rerenders.
-   * > Playing a move
-   *     => `square.playMove()` called
-   *     => `square[local state]` updated & `game.onPlayMove()` called
-   *     => Played square `render()`, and `moveHistory` & `progressShown` updated
-   *     => `game.state` broadcasted to *every* suqare
-   *     => *Every* square may check whether to and re-calc [local state] after looping through `moveHistory` (and finds no change)
-   *     => Unless in previous step checked whether to update, *every* square `render()`
-   * > Changing `progressShown`
-   *     => `goToMove()` called
-   *     => `progressShown` updated
-   *     => `game.state` broadcasted to *every* square
-   *     => *Every* `square[local state]` may check whether to and update itself after looping through a slice of `moveHistory`
-   *     => Squares with updated `[local state]` `render()`
-   */
-    const movesShown = this.props.gameStates.moveHistory.slice(0, this.props.gameStates.progressShown);
-    
-    let i = 0;
-    while(movesShown[i]) {
-      if(this.props.row === movesShown[i].moveRow && this.props.column === movesShown[i].moveColumn) {
-        return i;
-      }
-      i++;
-    }
   }
 
+  // To avoid an obsolete move to be rendered.
+  static getDerivedStateFromProps(props, state) {
+    if(
+      props.newMove === true
+      && props.progressShown === state.moveNumber
+      && props.lastSquare !== props.row + props.column
+      ) {
+        return {
+          moveNumber: 99
+        }
+    }    
+    return null;
+  }
+
+  // Called `onClick`.
   playMove() {
-    /*if(!this.state.playedBy) {
-      this.setState({
-        moveNumber: this.props.currentMove,
-        playedBy: this.props.player
-      }
-      ,() => {console.clear(); console.log(this.state);} // For debugging.
-      );*/
-      if(this.checkPlayed() === undefined) {
+    // If there is already a winner, don't do anything.
+    if(!this.props.winnerLetKnow) {
+
+      // DRY
+      const shown = this.props.progressShown;
+  
+      // Determine if this `square` is already played on.
+      if(this.state.moveNumber > shown) {
+  
+        // Update this `square` internal states.
+        this.setState({
+          moveNumber: shown + 1,
+          playedBy: shown % 2 === 0? "X" : "O"
+        });
+  
+        // Update `game` states.
         this.props.onPlayMove(this.props.row, this.props.column);
-      }
-    //}    
-  }
-
-  componentDidMount() {
-    //console.log(this.checkPlayed()); // For debugging
-  }
-
-  componentDidUpdate() {
-    /**
-     * 1. Receive new progressShown (e.g. 3)in props.
-     * 2. If progressShown(prop) < moveNumber(state) (e.g. 4) and playedBy isn't "",
-     *    update playedBy to "" while leaving moveNumber as is.
-     *    * Is this to 1) perform a side effect, 2) re-compute data, or 3) reset a state?
-     *        * Pretty sure not 1.
-     *        * Not sure if 2 - "data" in *what* content?
-     *        * Likely 3, but is this only limited to an unconditional response to a change 
-     *          in props?
-     * 3. New local states trigger rerender of component.
-    */
-    //console.clear(); // For debugging.
-    //console.log(this.checkPlayed()); // For debugging.
+      }      
+    }
   }
 
   render() {
     /**
-     * Loop through moves & check if a square has been played.
-     * If the a square finds itself, no need to continue the
-     * loop:
-     * > `for` - OK.
-     * > `for...in` - No as specific to object properties.
-     * > `for...of` - OK.
-     * > `do... while` - No as executed at least once.
-     * > `while` - OK.
-     * > recursion - OK, but let's not complicate things.
-     * > Array methods - `reduce` should work.
+     * Conditional render based on `progressShwon` and `moveNumber`.
+     * `progressShown` may change because of:
+     * 1. New move played, where `progressShown` increase by 1.
+     * 2. Jumping among moves.
     */
-    //console.clear();
-    console.log("Square ", this.props.row, this.props.column, " has called `render()`");
-    const i = this.checkPlayed();
-    const playedBy = i === undefined? "" : this.props.gameStates.moveHistory[i].movePlayer;
     
     return (
       <button className="square" onClick={this.playMove}>
-        {playedBy}
+        {this.state.moveNumber <= this.props.progressShown? this.state.playedBy : ""}
       </button>
     );
   }
 }
 
 class Board extends React.Component {
-  renderSquare(row, column) { //Whether to combine row and column seems more like a preference.
+  // `Board`'s responsibility: render the required number of `square`s.
+
+  renderSquare(row, column) {
     return <Square 
               row={row} 
               column={column}
               onPlayMove={this.props.onPlayMove}
-              gameStates={this.props.gameStates}
+              newMove={this.props.newMove} // `Square` needs this to render correctly.
+              lastSquare={this.props.lastSquare} // `Square` needs this to render correctly.
+              progressShown={this.props.progressShown} // `Square` needs this to render correctly.
+              winnerLetKnow={this.props.winnerLetKnow} // `Square` needs this to know when game ends.
             />;
   }
 
   render() {
-    console.log("Board has called `render()`");
-    const moves = this.props.gameStates.moveHistory;
-    const shown = this.props.gameStates.progressShown;
-    const player = !shown ? "X"
-                      : moves[shown - 1].movePlayer === "X" ? "O" 
-                      : "X";
-                      /**
-                       * Will it ever be possible that `shown` isn't 0 but
-                       * `moves` is empty?
-                       * 
-                       * No. Because a `shown` increment over `moves.length`
-                       * is always preceded by a move insertion, but any
-                       * other changes in `shown` don't necessarily concern
-                       * `moves` changes; so `moves.length` is always >=
-                       * shown.
-                       * */    
-
-    const status = 'Next player: ' + player;
-
     return (
       <div>
-        <div className="status">{status}</div>
         <div className="board-row">
-          {this.renderSquare(1, "A")}
-          {this.renderSquare(1, "B")}
-          {this.renderSquare(1, "C")}
+          {this.renderSquare(0, 1)}
+          {this.renderSquare(0, 2)}
+          {this.renderSquare(0, 3)}
         </div>
         <div className="board-row">
-          {this.renderSquare(2, "A")}
-          {this.renderSquare(2, "B")}
-          {this.renderSquare(2, "C")}
+          {this.renderSquare(3, 1)}
+          {this.renderSquare(3, 2)}
+          {this.renderSquare(3, 3)}
         </div>
         <div className="board-row">
-          {this.renderSquare(3, "A")}
-          {this.renderSquare(3, "B")}
-          {this.renderSquare(3, "C")}
+          {this.renderSquare(6, 1)}
+          {this.renderSquare(6, 2)}
+          {this.renderSquare(6, 3)}
         </div>
       </div>
     );
@@ -199,117 +106,142 @@ class Board extends React.Component {
 }
 
 class Game extends React.Component {
+  // `Game`'s responsibility: ref the game including allowing for going back to a previous move.
+
   constructor(props) {
     super(props);
-    /**
-     * To uniquely identify each move:
-     * 1. Who's playing?
-     * 2. How many moves have there already been?
-     * 3. On which grid cell?
-     * 
-     * So that we can go back to a previous move:
-     * 4. What unique moves have there been?
-     * 4a. What step to go back to?
-     * 
-     * So that we know when the game should end:
-     * 5. Is there a winner and who?
-     * 
-     * Presumebaly these should be the states to maintain.
-    */
     this.state = {
-      //nextPlayer: "X", 
-      /**
-       * This can be calculated from moveHistory and
-       * progressShown but keeping it saves some repetitions,
-       * or does it?
-       */
+      newMove: true,
       moveHistory: [],
-      progressShown: 0, // Needs to be passed down to Square.
+      progressShown: 0,
       winner: ""
-      /**
-       * Winning condition:
-       * 1. row the same
-       * 	A1 B1 C1
-       * 	A2 B2 C2
-       * 	A3 B3 C3
-       * 2. column the same
-       * 	A1 A2 A3
-       * 	B1 B2 B3
-       * 	C1 C2 C3
-       * 3. neither row nor column the same i.e. diagnal
-       * 	A1 B2 C3
-       * 	C1 B2 A3
-       */
     };
     this.onPlayMove = this.onPlayMove.bind(this);
     this.goToMove = this.goToMove.bind(this);
+    this.checkWinner = this.checkWinner.bind(this);
   }
 
   onPlayMove(playedRow, playedColumn) {
+
+    // DRY
     const moves = this.state.moveHistory;
     const shown = this.state.progressShown;
-    /* const player = this.state.nextPlayer;
-    const playerSwitcher = {
-      X: "O",
-      O: "X"
-    }; */
-    const player = !shown ? "X"
-                      : moves[shown - 1].movePlayer === "X" ? "O" 
-                      : "X";
-                      // Over complicated. To revise.
-
+    const movesUpdated = [
+      ...moves.slice(0, shown),
+      {movePlayer: shown % 2 === 0 ? "X" : "O",
+      moveRow: playedRow,
+      moveColumn: playedColumn}
+    ];
 
     this.setState({
-      //nextPlayer: playerSwitcher[player],
-      moveHistory: [...moves.slice(0, shown),
-        {movePlayer: player,
-        moveRow: playedRow,
-        moveColumn: playedColumn}
-      ],
-      progressShown: this.state.progressShown + 1
-      // progressShown == n means show *only* move 1 to n.
+      newMove: true,
+      moveHistory: movesUpdated,
+      progressShown: shown + 1,
+      winner: "" // Reset winner when a move is played.
     });
+
+    // Check if someone won if at least 5 moves on the board.
+    // +1 due to setState() batching.
+    if(shown + 1 >= 5) this.checkWinner(movesUpdated);    
   }
 
   goToMove(destination) {
     this.setState({
+      newMove: false,
       progressShown: destination
-      // Go to move #n == set progressShown to n == show move 1 to n or index 0 to n-1. This is OK.
     });
   }
 
-  // For debugging:
-  componentDidUpdate() {
-    //console.clear();
-    console.log(this.state.moveHistory);
-    console.log(this.state.progressShown);
+  checkWinner(movesToCheck) {
+
+    // DRY
+    const newMove = movesToCheck[movesToCheck.length - 1];
+    const newMovePlayer = newMove.movePlayer;
+    const newMoveRow = newMove.moveRow;
+    const newMoveColumn = newMove.moveColumn;
+    const lessMovesToCheck = movesToCheck.filter(move => move.movePlayer === newMovePlayer);
+
+    if(
+      // Check if row has three of the same (as the last player).
+      lessMovesToCheck.filter(move => move.moveRow === newMoveRow).length === 3
+      // Check if column has three of the same (as the last player).
+      || lessMovesToCheck.filter(move => move.moveColumn === newMoveColumn).length === 3
+      // Check if diagonals have three of the same (as the last player).
+      || lessMovesToCheck.filter(move => [1, 5, 9].indexOf(move.moveRow + move.moveColumn) !== -1).length === 3
+      || lessMovesToCheck.filter(move => [3, 5, 7].indexOf(move.moveRow + move.moveColumn) !== -1).length === 3
+      ) {
+      this.setState({
+        winner: newMovePlayer
+      });
     }
+  }
+  
+  componentDidUpdate() {
+    // console.clear();
+    // console.log(this.state.moveHistory);
+    // console.log(this.state.winner);
+  }
 
+  render() {    
+    /**
+     * To rethink the logic -
+     * 
+     * `Game`'s responsibility: Oversees game history and status, 
+     * while not worrying about visual representation of the game
+     * board.
+     * 
+     * `Square`'s responsibility: Visually represent (ie render) the
+     * game correctly based on info (ie props) passed down from `Game`,
+     * while not worring about the the correctness of info received.
+     * 
+     * When a move is played, `Game` records what happened; A `square`
+     * gets assigned its own internal states (for rendering purposes
+     * only), and decides whether to show X, O or nothing by referencing
+     * both it's own states and props given by `Game`.
+     * 
+     * When `progressShown` is manually adjusted, `Game` notifies
+     * `square`s and the latter check whether they should shown X, O or
+     * nothing by referencing the same info as above.
+    */
 
-
-  render() {
-    console.log("Game has called `render()`");
+    // DRY.
     const moves = this.state.moveHistory;
+    const shown = this.state.progressShown;
 
+    // For rendering buttons to go back to a previous move.
     const moveList = moves.map(
       (move, index) => {
-        return <li key={move.movePlayer + move.moveColumn + move.moveRow}
-                  /*Perhaps even movePlayer isn't necessary?*/>
-                  <button onClick={() => this.goToMove(index + 1)}>Go to move #{index + 1}</button>
-                </li>
+        return (
+          <li key={move.movePlayer + move.moveColumn + move.moveRow}>
+            <button onClick={() => this.goToMove(index + 1)}>Go to move #{index + 1}</button>
+          </li>
+        );
       }
     );
+    
+    // For `square` state update.
+    const lastSquare = shown? moves[shown - 1].moveRow + moves[shown - 1].moveColumn : 0;
+
+    // Winner to show & to pass down.
+    const winnerLetKnow = shown === moves.length? this.state.winner : "";
+    
+    // Game message.
+    const gameMessage = !winnerLetKnow? "Next player: " + (shown % 2 === 0? "X" : "O")
+                                      : "Winner: " + winnerLetKnow;
 
     return (
       <div className="game">
         <div className="game-board">
           <Board 
             onPlayMove={this.onPlayMove}
-            gameStates={this.state}
+            newMove={this.state.newMove} // `Square` needs this to render correctly.
+            lastSquare={lastSquare} // `Square` needs this to render correctly.
+            progressShown={shown} // `Square` needs this to render correctly.
+            winnerLetKnow={winnerLetKnow} // `Square` needs this to know when game ends.
           />
         </div>
         <div className="game-info">
-          <div>{/* status */}</div>
+          <div>{gameMessage}</div>
           <ol>
             <li><button onClick={() => this.goToMove(0)}>Go to game start</button></li>
             {moveList}
